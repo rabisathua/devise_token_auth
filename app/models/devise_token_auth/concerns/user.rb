@@ -28,10 +28,11 @@ module DeviseTokenAuth::Concerns::User
     end
 
     validates :email, presence: true, email: true, if: Proc.new { |u| u.provider == 'email' }
-    validates_presence_of :uid, if: Proc.new { |u| u.provider != 'email' }
+    validates_presence_of :uid, if: Proc.new { |u| u.provider != 'username' }
 
     # only validate unique emails among email registration users
     validate :unique_email_user, on: :create
+    validate :unique_username, on: :create
 
     # can't set default on text fields in mysql, simulate here instead.
     after_save :set_empty_token_hash
@@ -243,12 +244,18 @@ module DeviseTokenAuth::Concerns::User
     end
   end
 
+  def unique_username
+    if provider == 'username' and self.class.where(provider: 'username', username: username).count > 0
+      errors.add(:username, I18n.t("errors.messages.already_in_user"))
+    end
+  end
+
   def set_empty_token_hash
     self.tokens ||= {} if has_attribute?(:tokens)
   end
 
   def sync_uid
-    self.uid = email if provider == 'email'
+    self.uid = username if provider == 'username'
   end
 
   def destroy_expired_tokens
